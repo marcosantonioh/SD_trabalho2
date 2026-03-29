@@ -1,25 +1,29 @@
-from flask import Flask, request, jsonify
+import socket
 import datetime
 
-app = Flask(__name__)
+HOST = '0.0.0.0'
+PORT = 5000
 
-@app.route('/dados', methods=['POST'])
-def receber_dados():
-    data = request.json
-    
-    bateria = data.get('bateria')
-    memoria = data.get('memoria')
-    
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server.bind((HOST, PORT))
+server.listen()
+
+print("Servidor aguardando conexões...")
+
+while True:
+    conn, addr = server.accept()
+    print("Conectado por", addr)
+
+    data = conn.recv(1024).decode()
+
     timestamp = datetime.datetime.now()
-
-    log = f"{timestamp} | Bateria: {bateria}% | Memória: {memoria}\n"
+    log = f"{timestamp} | {data}\n"
 
     print(log)
 
     with open("log.txt", "a") as arquivo:
         arquivo.write(log)
 
-    return jsonify({"status": "ok"})
+    conn.send("Dados recebidos".encode())
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    conn.close()

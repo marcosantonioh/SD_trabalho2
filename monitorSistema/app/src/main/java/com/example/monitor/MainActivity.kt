@@ -1,7 +1,5 @@
 package com.example.monitor
 
-import okhttp3.*
-import org.json.JSONObject
 import java.io.IOException
 import android.app.ActivityManager
 import android.content.Context
@@ -11,7 +9,6 @@ import android.widget.TextView
 import android.widget.EditText
 import android.widget.Button
 import androidx.appcompat.app.AppCompatActivity
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
 
 class MainActivity : AppCompatActivity() {
 
@@ -71,6 +68,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun enviarDados() {
+
         val ip = edtIp.text.toString()
 
         if (ip.isEmpty()) {
@@ -78,49 +76,41 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        try {
-            val batteryManager = getSystemService(BATTERY_SERVICE) as BatteryManager
-            val bateria = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+        Thread {
 
-            val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-            val memoryInfo = ActivityManager.MemoryInfo()
-            activityManager.getMemoryInfo(memoryInfo)
+            try {
 
-            val memoria = "${memoryInfo.availMem / (1024 * 1024)} MB"
+                val batteryManager = getSystemService(BATTERY_SERVICE) as BatteryManager
+                val bateria = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
 
-            val json = JSONObject()
-            json.put("bateria", bateria)
-            json.put("memoria", memoria)
+                val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+                val memoryInfo = ActivityManager.MemoryInfo()
+                activityManager.getMemoryInfo(memoryInfo)
 
+                val memoria = "${memoryInfo.availMem / (1024 * 1024)} MB"
 
-            val client = OkHttpClient()
+                val mensagem = "Bateria:$bateria | Memoria:$memoria"
 
-            val body = RequestBody.create(
-                "application/json".toMediaTypeOrNull(),
-                json.toString()
-            )
+                val socket = java.net.Socket(ip, 5000)
 
-            val request = Request.Builder()
-                .url("http://$ip:5000/dados")
-                .post(body)
-                .build()
+                val writer = java.io.PrintWriter(socket.getOutputStream(), true)
 
-            client.newCall(request).enqueue(object : Callback {
-                override fun onFailure(call: Call, e: IOException) {
-                    runOnUiThread {
-                        txtStatus.text = "Erro ao enviar ❌"
-                    }
+                writer.println(mensagem)
+
+                socket.close()
+
+                runOnUiThread {
+                    txtStatus.text = "Enviado via Socket"
                 }
 
-                override fun onResponse(call: Call, response: Response) {
-                    runOnUiThread {
-                        txtStatus.text = "Enviado com sucesso 🚀"
-                    }
-                }
-            })
+            } catch (e: Exception) {
 
-        } catch (e: Exception) {
-            txtStatus.text = "Erro: ${e.message}"
-        }
+                runOnUiThread {
+                    txtStatus.text = "Erro: ${e.message}"
+                }
+
+            }
+
+        }.start()
     }
 }
